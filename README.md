@@ -36,17 +36,19 @@ This implementation uses four collaborating agents:
 
 - Modular responsibilities make the system easy to extend
 - Retrieval grounds the answer and reduces hallucination
-- Image handling is supported through a vision-capable LLM when an API key is available
-- The system still works without an API key using deterministic fallback logic
+- Image handling is supported through Vertex AI Gemini with safe fallback behavior
+- Pinecone provides vector retrieval, and the app can still fall back safely when cloud services are unavailable
 
 ## Tech Stack
 
 - FastAPI backend
-- Static HTML/CSS/JS UI
-- Local JSON-backed vector store
+- LangGraph for multi-agent orchestration
+- Pinecone vector database
+- Vertex AI Gemini for reasoning and image understanding
+- Vertex AI text embeddings
 - PyMuPDF for PDF parsing
-- Pillow for image metadata handling
-- Optional OpenAI multimodal reasoning for richer answers
+- Pillow for image metadata handling and safe image fallback
+- Postman collection for API testing/demo
 
 ## Local Setup
 
@@ -58,13 +60,18 @@ source .venv/bin/activate
 pip install -r requirements.txt
 ```
 
-### 2. Optional environment variables
+### 2. Environment variables
 
-Create a `.env` file if you want richer reasoning and image analysis:
+Copy [.env.example](/Users/Apple/Documents/ecommerce_agent/.env.example) to `.env` and fill in your credentials:
 
 ```env
-OPENAI_API_KEY=your_key_here
-LLM_MODEL=gpt-4.1-mini
+GCP_PROJECT_ID=your-gcp-project-id
+GCP_LOCATION=us-central1
+PINECONE_API_KEY=your-pinecone-api-key
+PINECONE_INDEX_NAME=rag-ai
+PINECONE_NAMESPACE=default
+GEMINI_MODEL=gemini-2.5-pro
+EMBEDDING_MODEL=text-embedding-004
 ```
 
 ### 3. Run the app
@@ -73,7 +80,7 @@ LLM_MODEL=gpt-4.1-mini
 uvicorn app.main:app --reload
 ```
 
-Open [http://localhost:8000](http://localhost:8000)
+Open [http://localhost:8000](http://localhost:8000). The root endpoint returns API status information, and the main demo flow is through the API/Postman requests below.
 
 ## Docker
 
@@ -86,7 +93,15 @@ docker build -t ecommerce-support-ai .
 ### Run
 
 ```bash
-docker run -p 8000:8000 --env OPENAI_API_KEY=$OPENAI_API_KEY ecommerce-support-ai
+docker run -p 8000:8000 \
+  --env GCP_PROJECT_ID=$GCP_PROJECT_ID \
+  --env GCP_LOCATION=$GCP_LOCATION \
+  --env PINECONE_API_KEY=$PINECONE_API_KEY \
+  --env PINECONE_INDEX_NAME=$PINECONE_INDEX_NAME \
+  --env PINECONE_NAMESPACE=$PINECONE_NAMESPACE \
+  --env GEMINI_MODEL=$GEMINI_MODEL \
+  --env EMBEDDING_MODEL=$EMBEDDING_MODEL \
+  ecommerce-support-ai
 ```
 
 Or:
@@ -173,22 +188,48 @@ Response:
       "score": 0.31
     }
   ],
-  "reasoning_summary": "Used 3 evidence chunk(s)..."
+  "reasoning_summary": "Used 3 evidence chunk(s)...",
+  "runtime": {
+    "vector_backend": "pinecone",
+    "llm_backend": "vertex-ai-gemini",
+    "orchestration_backend": "langgraph"
+  },
+  "evaluation": {
+    "evidence_count": 3,
+    "retrieved_candidate_count": 3,
+    "file_scope_applied": true,
+    "top_relevance_score": 0.31,
+    "average_relevance_score": 0.24,
+    "grounded_response": true,
+    "clarification_rate": 0.0,
+    "response_latency_ms": 182.4
+  }
 }
 ```
+
+### Implemented evaluation metrics
+
+- `evidence_count`: how many chunks were actually used for the answer
+- `retrieved_candidate_count`: how many chunks survived retrieval/reranking for the final response
+- `file_scope_applied`: whether retrieval was constrained to explicit `file_ids`
+- `top_relevance_score`: strongest retrieval match score
+- `average_relevance_score`: average score across returned evidence
+- `grounded_response`: whether the answer includes supporting references
+- `clarification_rate`: `1.0` when the system asks for clarification, otherwise `0.0`
+- `response_latency_ms`: end-to-end response latency for the query call
 
 ## Failure Handling
 
 - If no relevant evidence is found, the system says it cannot answer confidently
 - If a question is ambiguous, the system requests clarification
-- If no vision API key is available, the app falls back to safe image metadata summaries
+- If Vertex AI image analysis fails, the app falls back to safe image metadata summaries instead of crashing
 - Answers are generated from retrieved evidence only
 
 ## Performance Notes
 
-- Lightweight local search keeps the demo simple and fast
+- Pinecone-backed retrieval keeps query-time search fast once files are indexed
 - Chunking prevents very large documents from overwhelming retrieval
-- The architecture can later swap in a real vector database and async task queue
+- The architecture can later add async ingestion, reranking, and background jobs
 
 ## Suggested Demo Video
 
@@ -203,14 +244,14 @@ In 2 minutes, show:
 
 ## Trade-Offs
 
-- Local JSON storage is simple for evaluation, not for production scale
-- Fallback image understanding is intentionally conservative without a vision model
-- The current retrieval is lightweight lexical similarity rather than full semantic embeddings
+- Pinecone and Vertex AI improve realism, but they increase setup complexity versus a pure local demo
+- Fallback image understanding is intentionally conservative when cloud image analysis is unavailable
+- The current graph is sequential by design, which keeps it simple and explainable but leaves room for richer branching logic
 
 For a production version, the next upgrades would be:
 
 - PostgreSQL or object storage for file metadata
-- A true vector database
+- Metadata-based retrieval filtering and reranking
 - Background ingestion jobs
 - OCR pipeline for image text extraction
 - Authentication and per-user document isolation

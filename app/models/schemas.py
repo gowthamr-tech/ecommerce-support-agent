@@ -29,6 +29,17 @@ class RuntimeMetadata(BaseModel):
     orchestration_backend: str
 
 
+class EvaluationMetrics(BaseModel):
+    evidence_count: int
+    retrieved_candidate_count: int
+    file_scope_applied: bool
+    top_relevance_score: Optional[float] = None
+    average_relevance_score: Optional[float] = None
+    grounded_response: bool
+    clarification_rate: float
+    response_latency_ms: float
+
+
 class QueryResponse(BaseModel):
     answer: str
     confidence: Literal["low", "medium", "high"]
@@ -36,6 +47,7 @@ class QueryResponse(BaseModel):
     references: list[Reference]
     reasoning_summary: str
     runtime: RuntimeMetadata
+    evaluation: EvaluationMetrics
 
 
 class HealthResponse(BaseModel):

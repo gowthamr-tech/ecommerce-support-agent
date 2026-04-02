@@ -42,7 +42,6 @@ class Settings(BaseSettings):
 @lru_cache
 def get_settings() -> Settings:
     settings = Settings()
-    print("Pinecone index name=====>>>",settings.pinecone_index_name)
     settings.uploads_dir.mkdir(parents=True, exist_ok=True)
     settings.vectorstore_dir.mkdir(parents=True, exist_ok=True)
     settings.policies_dir.mkdir(parents=True, exist_ok=True)
