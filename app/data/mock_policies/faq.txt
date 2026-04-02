@@ -1,0 +1,10 @@
+FAQ
+
+Q: Why was my refund rejected?
+A: Common reasons include requests outside the refund window, lack of valid purchase proof, or policy exclusions such as misuse.
+
+Q: What should I do if my product arrived damaged?
+A: Upload photos of the damaged product and packaging, then contact support with your order or invoice details.
+
+Q: Can I ask questions about my uploaded documents?
+A: Yes. The support assistant can use your uploaded invoice, receipt, policy, and image information when generating an answer.

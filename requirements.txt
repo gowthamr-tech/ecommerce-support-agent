@@ -1,0 +1,21 @@
+# fastapi==0.115.8
+# uvicorn[standard]==0.34.0
+# python-multipart==0.0.20
+# pydantic-settings==2.8.1
+# PyMuPDF==1.25.3
+# Pillow==11.1.0
+# langgraph==0.3.21
+# pinecone==6.0.2
+# google-cloud-aiplatform==1.92.0
+# vertexai==1.71.1
+# pytest==8.3.5
+fastapi==0.115.8
+uvicorn[standard]==0.34.0
+python-multipart==0.0.20
+pydantic-settings==2.8.1
+PyMuPDF==1.25.3
+Pillow==11.1.0
+langgraph==0.3.21
+pinecone==6.0.2
+google-cloud-aiplatform==1.92.0
+pytest==8.3.5
