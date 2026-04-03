@@ -9,9 +9,11 @@ from app.services.vertex_ai_service import VertexAIService
 class ReasoningAgent:
     def __init__(self) -> None:
         self.vertex_service = VertexAIService()
+        self._last_backend: str = "rule-based-fallback"
 
     def answer(self, question: str, evidence: list[dict]) -> dict:
         if not evidence:
+            self._last_backend = "rule-based-fallback"
             return {
                 "answer": (
                     "I couldn’t find enough support information in the uploaded files or policies to answer that confidently."
@@ -24,11 +26,14 @@ class ReasoningAgent:
         if self.vertex_service.available:
             llm_result = self._answer_with_llm(question, evidence)
             if llm_result:
+                self._last_backend = "vertex-ai-gemini"
                 return llm_result
+
+        self._last_backend = "rule-based-fallback"
         return self._answer_with_rules(question, evidence)
 
     def backend_name(self) -> str:
-        return "vertex-ai-gemini" if self.vertex_service.available else "rule-based-fallback"
+        return self._last_backend
 
     def _answer_with_llm(self, question: str, evidence: list[dict]) -> Optional[dict]:
         return self.vertex_service.generate_grounded_response(question=question, evidence=evidence)

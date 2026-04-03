@@ -17,7 +17,20 @@ class RetrievalAgent:
         self.vector_store = PineconeVectorStore()
 
     def retrieve(self, question: str, file_ids: Optional[list[str]] = None) -> list[dict]:
-        raw_matches = self.vector_store.search(question=question, file_ids=file_ids, top_k=max(self.top_k * 3, 10))
+        raw_matches = self.vector_store.search(question=question, file_ids=file_ids, top_k=max(self.top_k * 3, 15))
+
+        # When the question is about an image and files are scoped, ensure image chunks
+        # are always included — Pinecone embedding similarity can miss them otherwise.
+        if file_ids and any(kw in question.lower() for kw in IMAGE_KEYWORDS):
+            seen_ids = {m.get("chunk_id") for m in raw_matches}
+            image_chunks = self.vector_store.search(
+                question=question, file_ids=file_ids, top_k=max(self.top_k * 3, 15),
+                media_type_filter="image",
+            )
+            for chunk in image_chunks:
+                if chunk.get("chunk_id") not in seen_ids:
+                    raw_matches.append(chunk)
+
         ranked = self._rerank(question=question, matches=raw_matches)
         return ranked[: self.top_k]
 

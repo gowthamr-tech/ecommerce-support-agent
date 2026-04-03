@@ -1,4 +1,3 @@
-import importlib.util
 from contextlib import asynccontextmanager
 from pathlib import Path
 
@@ -8,8 +7,7 @@ from fastapi.responses import JSONResponse
 from fastapi.staticfiles import StaticFiles
 
 from app.agents.orchestrator import SupportOrchestrator
-from app.api.routes.health import router as health_router
-from app.api.routes.query import router as query_router
+from app.api.routes import router
 from app.config import get_settings
 
 
@@ -31,15 +29,7 @@ app.add_middleware(
     allow_credentials=True,
 )
 
-app.include_router(health_router)
-app.include_router(query_router, prefix="/api")
-
-if importlib.util.find_spec("multipart") is not None:
-    from app.api.routes.upload import router as upload_router
-    from app.api.routes.ask import router as ask_router
-
-    app.include_router(upload_router, prefix="/api")
-    app.include_router(ask_router, prefix="/api")
+app.include_router(router)
 
 static_dir = Path(__file__).resolve().parent / "static"
 

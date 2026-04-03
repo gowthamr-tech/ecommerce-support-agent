@@ -19,11 +19,19 @@ class LocalVectorStore:
     def all_chunks(self) -> list[dict[str, Any]]:
         return self.store.read()
 
-    def search(self, question: str, file_ids: Optional[list[str]] = None, top_k: int = 5) -> list[dict[str, Any]]:
+    def search(
+        self,
+        question: str,
+        file_ids: Optional[list[str]] = None,
+        top_k: int = 5,
+        media_type_filter: Optional[str] = None,
+    ) -> list[dict[str, Any]]:
         question_vector = term_frequency(tokenize(question))
         matches: list[dict[str, Any]] = []
         for item in self.all_chunks():
             if file_ids and item["file_id"] not in file_ids:
+                continue
+            if media_type_filter and item.get("media_type") != media_type_filter:
                 continue
             score = cosine_similarity(question_vector, term_frequency(tokenize(item["content"])))
             if score <= 0:

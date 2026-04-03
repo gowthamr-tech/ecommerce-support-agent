@@ -98,14 +98,20 @@ class VertexAIService:
             self.logger.warning("Vertex AI grounded generation failed: %s", exc)
             return None
         try:
-            parsed = json.loads(raw)
+            # Gemini often wraps output in ```json ... ``` — strip it before parsing
+            cleaned = raw.strip()
+            if cleaned.startswith("```"):
+                cleaned = cleaned.split("\n", 1)[-1]  # drop opening fence line
+                cleaned = cleaned.rsplit("```", 1)[0]  # drop closing fence
+            parsed = json.loads(cleaned.strip())
             return {
-                "answer": parsed["answer"],
-                "confidence": parsed["confidence"],
-                "needs_clarification": parsed["needs_clarification"],
-                "reasoning_summary": parsed["reasoning_summary"],
+                "answer": str(parsed["answer"]),
+                "confidence": str(parsed["confidence"]),
+                "needs_clarification": bool(parsed["needs_clarification"]),
+                "reasoning_summary": str(parsed["reasoning_summary"]),
             }
-        except Exception:
+        except Exception as exc:
+            self.logger.warning("Vertex AI response JSON parse failed: %s | raw=%r", exc, raw[:300])
             return None
 
     def analyze_image(self, file_bytes: bytes, mime_type: str, filename: str) -> Optional[str]:
