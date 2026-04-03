@@ -91,24 +91,14 @@ class PineconeVectorStore:
         if not self.available or self.index is None:
             return
 
-        vectors = []
-        for chunk in chunks:
-            embedding = self.vertex_service.embed_text(chunk["content"])
-            vectors.append(
-                {
-                    "id": chunk["chunk_id"],
-                    "values": embedding,
-                    "metadata": {
-                        "file_id": chunk["file_id"],
-                        "filename": chunk["filename"],
-                        "media_type": chunk["media_type"],
-                        "content": chunk["content"],
-                        "chunk_id": chunk["chunk_id"],
-                    },
-                }
-            )
-        if vectors:
-            self.index.upsert(vectors=vectors, namespace=self.settings.pinecone_namespace)
+        self._upsert_chunks(chunks)
+
+    def sync_local_chunks(self) -> int:
+        chunks = self.local_store.all_chunks()
+        if not chunks or not self.available or self.index is None:
+            return 0
+        self._upsert_chunks(chunks)
+        return len(chunks)
 
     def search(self, question: str, file_ids: Optional[list[str]] = None, top_k: int = 5) -> list[dict[str, Any]]:
         if not self.available or self.index is None:
@@ -136,3 +126,26 @@ class PineconeVectorStore:
                 }
             )
         return matches
+
+    def _upsert_chunks(self, chunks: list[dict[str, Any]]) -> None:
+        if not self.available or self.index is None:
+            return
+
+        vectors = []
+        for chunk in chunks:
+            embedding = self.vertex_service.embed_text(chunk["content"])
+            vectors.append(
+                {
+                    "id": chunk["chunk_id"],
+                    "values": embedding,
+                    "metadata": {
+                        "file_id": chunk["file_id"],
+                        "filename": chunk["filename"],
+                        "media_type": chunk["media_type"],
+                        "content": chunk["content"],
+                        "chunk_id": chunk["chunk_id"],
+                    },
+                }
+            )
+        if vectors:
+            self.index.upsert(vectors=vectors, namespace=self.settings.pinecone_namespace)

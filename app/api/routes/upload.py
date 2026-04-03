@@ -21,7 +21,7 @@ async def upload_file(file: UploadFile = File(...)) -> UploadResponse:
     suffix = Path(file.filename).suffix or ".bin"
     stored_name = f"{uuid.uuid4().hex[:12]}{suffix}"
     destination = settings.uploads_dir / stored_name
-
+    print("What happen here ", destination)
     with destination.open("wb") as buffer:
         shutil.copyfileobj(file.file, buffer)
 

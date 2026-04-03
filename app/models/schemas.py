@@ -52,3 +52,14 @@ class QueryResponse(BaseModel):
 
 class HealthResponse(BaseModel):
     status: str
+
+
+class CombinedResponse(BaseModel):
+    uploads: list[UploadResponse]
+    answer: str
+    confidence: Literal["low", "medium", "high"]
+    needs_clarification: bool
+    references: list[Reference]
+    reasoning_summary: str
+    runtime: RuntimeMetadata
+    evaluation: EvaluationMetrics
