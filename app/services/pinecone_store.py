@@ -27,23 +27,6 @@ class PineconeVectorStore:
         self.expected_dimension = len(self.vertex_service.embed_text("dimension check"))
         self._init_index()
 
-    # def _init_index(self) -> None:
-    #     if Pinecone is None or not self.settings.pinecone_api_key:
-    #         self.available = False
-    #         return
-
-    #     client = Pinecone(api_key=self.settings.pinecone_api_key)
-    #     print("Client ==>...",client)
-    #     existing_indexes = {item["name"] for item in client.list_indexes()}
-    #     if self.settings.pinecone_index_name not in existing_indexes and ServerlessSpec is not None:
-    #         client.create_index(
-    #             name=self.settings.pinecone_index_name,
-    #             dimension=768,
-    #             metric="cosine",
-    #             spec=ServerlessSpec(cloud="aws", region="us-east-1"),
-    #         )
-    #     self.index = client.Index(self.settings.pinecone_index_name)
-    #     self.available = True
     def _init_index(self) -> None:
         if Pinecone is None or not self.settings.pinecone_api_key:
             self.available = False
@@ -100,16 +83,29 @@ class PineconeVectorStore:
         self._upsert_chunks(chunks)
         return len(chunks)
 
-    def search(self, question: str, file_ids: Optional[list[str]] = None, top_k: int = 5) -> list[dict[str, Any]]:
+    def search(
+        self,
+        question: str,
+        file_ids: Optional[list[str]] = None,
+        top_k: int = 5,
+        media_type_filter: Optional[str] = None,
+    ) -> list[dict[str, Any]]:
         if not self.available or self.index is None:
-            return self.local_store.search(question=question, file_ids=file_ids, top_k=top_k)
+            return self.local_store.search(
+                question=question, file_ids=file_ids, top_k=top_k, media_type_filter=media_type_filter
+            )
         query_vector = self.vertex_service.embed_query(question)
+        pinecone_filter: dict = {}
+        if file_ids:
+            pinecone_filter["file_id"] = {"$in": file_ids}
+        if media_type_filter:
+            pinecone_filter["media_type"] = {"$eq": media_type_filter}
         result = self.index.query(
             namespace=self.settings.pinecone_namespace,
             vector=query_vector,
             top_k=top_k,
             include_metadata=True,
-            filter={"file_id": {"$in": file_ids}} if file_ids else None,
+            filter=pinecone_filter if pinecone_filter else None,
         )
 
         matches = []
