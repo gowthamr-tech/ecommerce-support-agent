@@ -36,8 +36,10 @@ app.include_router(query_router, prefix="/api")
 
 if importlib.util.find_spec("multipart") is not None:
     from app.api.routes.upload import router as upload_router
+    from app.api.routes.ask import router as ask_router
 
     app.include_router(upload_router, prefix="/api")
+    app.include_router(ask_router, prefix="/api")
 
 static_dir = Path(__file__).resolve().parent / "static"
 
@@ -53,5 +55,6 @@ else:
                 "health": "/health",
                 "upload": "/api/upload",
                 "query": "/api/query",
+                "ask (combined)": "/api/ask",
             }
         )
