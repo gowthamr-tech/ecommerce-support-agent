@@ -3,6 +3,8 @@ services:
     build: .
     ports:
       - "8000:8000"
+    env_file:
+      - .env
     environment:
       GCP_PROJECT_ID: ${GCP_PROJECT_ID:-}
       GCP_LOCATION: ${GCP_LOCATION:-us-central1}
@@ -11,3 +13,6 @@ services:
       PINECONE_NAMESPACE: ${PINECONE_NAMESPACE:-default}
       GEMINI_MODEL: ${GEMINI_MODEL:-gemini-2.5-pro}
       EMBEDDING_MODEL: ${EMBEDDING_MODEL:-text-embedding-004}
+      GOOGLE_APPLICATION_CREDENTIALS: /app/credentials/gcp-key.json
+    volumes:
+      - ${GOOGLE_APPLICATION_CREDENTIALS:-~/.config/gcloud/application_default_credentials.json}:/app/credentials/gcp-key.json:ro
