@@ -74,6 +74,7 @@ class IngestionAgent:
         }
 
     def preload_policies(self) -> int:
+        self.vector_store.sync_local_chunks()
         existing_files = {row["filename"] for row in self.file_store.read()}
         ingested_count = 0
         for file_path in sorted(self.settings.policies_dir.iterdir()):

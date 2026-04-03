@@ -7,6 +7,8 @@ from app.agents.citation_agent import CitationAgent
 from app.agents.ingestion_agent import IngestionAgent
 from app.agents.reasoning_agent import ReasoningAgent
 from app.agents.retrieval_agent import RetrievalAgent
+from app.config import get_settings
+from app.services.storage import JsonStore
 
 try:
     from langgraph.graph import END, StateGraph
@@ -26,10 +28,12 @@ class SupportState(TypedDict, total=False):
 
 class SupportOrchestrator:
     def __init__(self) -> None:
+        self.settings = get_settings()
         self.ingestion_agent = IngestionAgent()
         self.retrieval_agent = RetrievalAgent()
         self.reasoning_agent = ReasoningAgent()
         self.citation_agent = CitationAgent()
+        self.file_store = JsonStore(self.settings.vectorstore_dir / "files.json")
         self.graph = self._build_graph()
 
     def preload(self) -> int:
@@ -40,8 +44,9 @@ class SupportOrchestrator:
 
     def answer_question(self, question: str, file_ids: Optional[list[str]] = None) -> dict:
         started_at = perf_counter()
+        effective_file_ids = self._resolve_file_scope(question=question, file_ids=file_ids)
         if self.graph is not None:
-            final_state = self.graph.invoke({"question": question, "file_ids": file_ids or []})
+            final_state = self.graph.invoke({"question": question, "file_ids": effective_file_ids or []})
             reasoning = final_state["reasoning"]
             reasoning["references"] = final_state["references"]
             reasoning["runtime"] = self._runtime_metadata()
@@ -49,13 +54,13 @@ class SupportOrchestrator:
                 evidence=final_state.get("evidence", []),
                 references=final_state.get("references", []),
                 reasoning=reasoning,
-                file_ids=file_ids,
+                file_ids=effective_file_ids,
                 candidate_count=final_state.get("retrieved_candidate_count"),
                 started_at=started_at,
             )
             return reasoning
 
-        evidence = self.retrieval_agent.retrieve(question=question, file_ids=file_ids)
+        evidence = self.retrieval_agent.retrieve(question=question, file_ids=effective_file_ids)
         reasoning = self.reasoning_agent.answer(question=question, evidence=evidence)
         references = self.citation_agent.format_references(evidence)
         reasoning["references"] = references
@@ -64,7 +69,7 @@ class SupportOrchestrator:
             evidence=evidence,
             references=references,
             reasoning=reasoning,
-            file_ids=file_ids,
+            file_ids=effective_file_ids,
             candidate_count=len(evidence),
             started_at=started_at,
         )
@@ -136,3 +141,38 @@ class SupportOrchestrator:
             "clarification_rate": 1.0 if reasoning.get("needs_clarification") else 0.0,
             "response_latency_ms": round((perf_counter() - started_at) * 1000, 2),
         }
+
+    def _resolve_file_scope(self, question: str, file_ids: Optional[list[str]]) -> Optional[list[str]]:
+        if file_ids:
+            return file_ids
+
+        lowered = question.lower()
+        upload_markers = (
+            "uploaded",
+            "my invoice",
+            "my receipt",
+            "my file",
+            "my document",
+            "my image",
+            "this invoice",
+            "this receipt",
+            "this file",
+            "this image",
+            "see image",
+            "see screenshot",
+        )
+        if not any(marker in lowered for marker in upload_markers):
+            return None
+
+        policy_filenames = {path.name for path in self.settings.policies_dir.iterdir() if path.is_file()}
+        files = self.file_store.read()
+        for item in reversed(files):
+            filename = str(item.get("filename", ""))
+            if filename in policy_filenames:
+                continue
+            if item.get("media_type") not in {"document", "image", "text"}:
+                continue
+            file_id = item.get("file_id")
+            if file_id:
+                return [str(file_id)]
+        return None
